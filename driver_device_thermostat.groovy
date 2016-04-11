@@ -7,10 +7,12 @@ preferences {
 
 metadata {
 	definition (name: "Sinope technologie Thermostat", namespace: "Sinope Technologie", author: "Mathieu Virole") {
+        capability "Thermostat Heating Setpoint"
 		capability "Polling"
-		capability "Thermostat"
+
+		capability "Thermostat Operating State"
 		capability "Temperature Measurement"
-		capability "Sensor"
+        capability "Energy Meter"
         
 		command "heatingSetpointUp"
 		command "heatingSetpointDown"
@@ -23,30 +25,38 @@ metadata {
 	}
 
 	tiles(scale: 2) {
-		multiAttributeTile(name:"temperature", type: "lighting", width: 6, height: 4, canChangeIcon: true, decoration: "flat"){
+		multiAttributeTile(name:"temperature", type: "thermostat", width: 6, height: 4, canChangeIcon: true){
 			tileAttribute ("device.temperature", key: "PRIMARY_CONTROL") {
-				attributeState("temperature", label:'${currentValue}°',backgroundColor:"#44B621")
+				attributeState("default", label:'${currentValue}°', backgroundColor:"#44B621")
 			}
-            tileAttribute ("device.thermostatOperatingState", key: "SECONDARY_CONTROL") {
-           		attributeState("thermostatOperatingState", label:'									Heating power: ${currentValue}%')       		
-            }
+            tileAttribute("device.temperature", key: "VALUE_CONTROL") {
+			    attributeState("VALUE_UP", action: "heatingSetpointUp")
+			    attributeState("VALUE_DOWN", action: "heatingSetpointDown")
+			}
+			tileAttribute("device.energy", key: "SECONDARY_CONTROL") {
+			    attributeState("default", label:'${currentValue}%')
+			}
+		    tileAttribute("device.thermostatOperatingState", key: "OPERATING_STATE") {
+			    attributeState("idle", backgroundColor:"#44b621")
+			    attributeState("heating", backgroundColor:"#ffa81e")
+			}
+            tileAttribute("device.heatingSetpoint", key: "HEATING_SETPOINT") {
+			    attributeState("default", label:'${currentValue}')
+			}
 		}  
 
-		//Heating Set Point Controls
-        standardTile("heatLevelUp", "device.heatingSetpoint", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-            state "heatLevelUp", action:"heatingSetpointUp", icon:"st.thermostat.thermostat-up"
-        }
-		standardTile("heatLevelDown", "device.heatingSetpoint", width: 2, height: 2, inactiveLabel: false, decoration: "flat") {
-            state "heatLevelDown", action:"heatingSetpointDown", icon:"st.thermostat.thermostat-down"
-        }
+		// Heating Set Point Controls
        	valueTile("heatingSetpoint", "device.heatingSetpoint", width: 2, height: 2, inactiveLabel: false) {
-			state "heatingSetpoint", label:'${currentValue}', backgroundColor:"#153591"
+			state "default", label:'${currentValue}', backgroundColor:"#153591"
 		}
-		standardTile("refresh", "device.thermostatMode", inactiveLabel: false, width: 6, height: 2, decoration: "flat") {
+		standardTile("refresh", "device.thermostatMode", inactiveLabel: false, width: 2, height: 2, decoration: "flat") {
 			state "default", action:"polling.poll", icon:"st.secondary.refresh"
 		}
+       	valueTile("energy", "device.energy", width: 2, height: 2, inactiveLabel: false) {
+			state "default", label:'${currentValue}'
+		}
 		main (["temperature"])
-        details(["temperature", "heatLevelUp", "heatingSetpoint", "heatLevelDown", "refresh"])
+        details(["temperature", "heatingSetpoint", "refresh", "energy"])
 	}
 }
 
@@ -325,7 +335,6 @@ def isLoggedIn() {
 def DeviceData(){
 	def temperature
     def heatingSetpoint
-    def range
 	def temperatureUnit
 
    	def params = [
@@ -365,7 +374,12 @@ def DeviceData(){
     
 	sendEvent(name: 'temperature', value: temperature, unit: temperatureUnit)	
 	sendEvent(name: 'heatingSetpoint', value: heatingSetpoint, unit: temperatureUnit)
-    sendEvent(name: 'thermostatOperatingState', value: "${data.status.heatLevel}")
+    sendEvent(name: 'energy', value: data?.status?.heatLevel, unit:"%")
+    if (data?.status?.heatLevel > 0) {
+    	sendEvent(name: 'thermostatOperatingState', value: "heating")
+    } else {
+    	sendEvent(name: 'thermostatOperatingState', value: "idle")
+    }
 }
 
 def FormatTemp(temp){
