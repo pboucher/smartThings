@@ -53,50 +53,41 @@ metadata {
 			state "default", action:"polling.poll", icon:"st.secondary.refresh"
 		}
        	valueTile("energy", "device.energy", width: 2, height: 2, inactiveLabel: false) {
-			state "default", label:'${currentValue}'
+			state "default", label:'${currentValue}%'
 		}
 		main (["temperature"])
         details(["temperature", "heatingSetpoint", "refresh", "energy"])
 	}
 }
 
-def setHeatingSetpoint(newSetpoint , temperatureUnit) {
-	
+def setHeatingSetpoint(newSetpoint, temperatureUnit) {
+    if (newSetpoint != null){
+        newSetpoint = newSetpoint.toDouble().round(2)
+        if (temperatureUnit == "fahrenheit") {
+            newSetpoint = fToC(newSetpoint)
+        }
+    } else {
+        newSetpoint = null
+    }
+		
+    setHeatingSetpoint(newSetpoint)
+}
+
+def setHeatingSetpoint(newSetpoint) {
 	if(!isLoggedIn()) {
 		log.info "Need to login"
 		login()
 	}
 
-	if(data.error==true){
+	if (data.error == true) {
 		logout()
-	}else{
-    
-        def temperature
-
-		if (newSetpoint!=null){
-			newSetpoint=newSetpoint.toDouble().round(2)
-			log.info("setHeatingSetpoint -> Value :: ${newSetpoint}° ${temperatureUnit}")
-		}else{
-			newSetpoint=null
-		}
-		
-		switch (temperatureUnit) {
-			case "celsius":
-	         	temperature = newSetpoint    
-	        break;
-
-	        case "fahrenheit":
-				temperature = fToC(newSetpoint)
-			break;
-	    }
-		
-	    log.info("setHeatingSetpoint _ STEP2 -> NEW Value :: ${newSetpoint}° ${temperatureUnit}")
-		//sendEvent(name: 'heatingSetpoint', value: newSetpoint, unit: temperatureUnit)
+	} else {
+	    log.info("setHeatingSetpoint -> NEW Value :: ${newSetpoint}° ${temperatureUnit}")
 		def params = [
 			uri: "${data.server}",
 			path: "api/device/${data.deviceId}/setpoint",
 			headers: ['Session-Id' : data.auth.session],
-		 	body: ['temperature': temperature]
+		 	body: ['temperature': newSetpoint]
 		]
 		
 	    httpPut(params){
@@ -106,7 +97,7 @@ def setHeatingSetpoint(newSetpoint , temperatureUnit) {
 
        	poll() 
 	}
-}		
+}
 
 def heatingSetpointUp(){
 	if(!isLoggedIn()) {
